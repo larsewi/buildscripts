@@ -1,0 +1,26 @@
+#!/bin/sh -e
+
+# Options
+
+PREFIX=${BUILDPREFIX}
+
+TT=${BUILD_ROOT}/cfbuild-librsync${PREFIX}
+TTD=${BUILD_ROOT}/cfbuild-librsync-devel${PREFIX}
+
+# Build
+
+cmake -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release .
+gmake
+
+# Test
+
+# Install
+
+mkdir -p $TTD/lib
+mkdir -p $TTD/include
+gmake install prefix=${TTD}
+
+# Package
+
+mkdir -p ${TT}/lib
+mv ${TTD}/lib/*.so* ${TT}/lib

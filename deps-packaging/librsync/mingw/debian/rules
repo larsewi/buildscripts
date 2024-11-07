@@ -1,0 +1,55 @@
+#!/usr/bin/make -f
+
+PREFIX=$(BUILDPREFIX)
+
+clean:
+	dh_testdir
+	dh_testroot
+
+	dh_clean
+
+build: build-stamp
+build-stamp:
+	dh_testdir
+
+	cmake -DCMAKE_SYSTEM_NAME=Windows \
+	    -DCMAKE_C_COMPILER=$(DEB_HOST_GNU_TYPE)-gcc \
+	    -DCMAKE_FIND_ROOT_PATH=/usr/$(DEB_HOST_GNU_TYPE) \
+	    -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+	    -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+	    -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+	    -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} -static -0s" \
+	    -DCMAKE_INSTALL_PREFIX=$(PREFIX) \
+	    -DCMAKE_BUILD_TYPE=Release .
+	make
+
+	touch build-stamp
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+
+	make install DESTDIR=$(CURDIR)/debian/tmp
+
+	# rm -f $(CURDIR)/debian/tmp$(PREFIX)/lib/leech.a
+	# rm -f $(CURDIR)/debian/tmp$(PREFIX)/lib/leech.la
+
+binary-indep: build install
+
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_install --sourcedir=debian/tmp
+	dh_link
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install configure
