@@ -4,16 +4,19 @@
 %define version 2.3.4
 %define gitsource https://github.com/librsync/%{name}/archive/v%{version}.tar.gz
 
-Summary:  	Rsync libraries
+Summary:  	CFEngine Build Automation - Rsync libraries
 Name:     	cfbuild-librsync
 Version:  	%{version}
 Release:  	1%{?dist}
 License:	LGPL
 Group:    	System Environment/Libraries
-Source0:	%{gitsource}
+Source0:	%{name}-%{version}.tar.gz
 URL:       	http://librsync.sourcefrog.net
-BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-BuildRequires:  zlib cmake popt-devel bzip2-devel doxygen
+BuildRoot:	%{_topdir}/BUILD/%{name}-%{version}-%{release}-buildroot
+
+AutoReqProv: no
+
+%define prefix %{buildprefix}
 
 %description
 librsync implements the "rsync" algorithm, which allows remote
@@ -37,27 +40,23 @@ based on librsync.
 
 %prep
 #wget --no-check-certificate --timeout=5 -O %{_sourcedir}/v%{version}.tar.gz %{gitsource}
-%setup
+mkdir -p %{_builddir}
+cmake -DCMAKE_INSTALL_PREFIX=%{prefix} -DCMAKE_BUILD_TYPE=Release .
+%setup -q -n %{name}-%{version}
+
 # The next line is only needed if there are any non-upstream patches.  In
 # this distribution there are none.
 #%patch
-%build
 
-# By default, cmake installs to /usr/local, need to tweak here
-cmake -DCMAKE_INSTALL_PREFIX=%{_prefix} -DCMAKE_BUILD_TYPE=Release .
-make CFLAGS="$RPM_OPT_FLAGS"
-make doc
+%build
+make
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make DESTDIR=$RPM_BUILD_ROOT install
+make install DESTDIR=$RPM_BUILD_ROOT
 
 %clean
 rm -rf $RPM_BUILD_ROOT
-
-%post -p /sbin/ldconfig
-
-%postun -p /sbin/ldconfig
 
 %files
 %defattr(-,root,root)
@@ -72,26 +71,3 @@ rm -rf $RPM_BUILD_ROOT
 %{_includedir}/%{name}*
 
 %changelog
-* Sun Feb 19 2023 Donovan Baarda <abo@minkirri.apana.org.au>
-- Prepare SPEC file for librsync 2.3.5
-* Sun Feb 19 2023 Donovan Baarda <abo@minkirri.apana.org.au>
-- Updated SPEC file for librsync 2.3.4
-* Thu Feb 16 2023 Donovan Baarda <abo@minkirri.apana.org.au>
-- Updated SPEC file for librsync 2.3.3
-* Sat Apr 10 2021 Donovan Baarda <abo@minkirri.apana.org.au>
-- Updated SPEC file for librsync 2.3.2
-* Tue May 19 2020 Donovan Baarda <abo@minkirri.apana.org.au>
-- Updated SPEC file for librsync 2.3.1
-* Tue Apr 07 2020 Donovan Baarda <abo@minkirri.apana.org.au>
-- Updated SPEC file for librsync 2.3.0
-* Wed Oct 16 2019 Donovan Baarda <abo@minkirri.apana.org.au>
-- Updated SPEC file for librsync 2.2.1
-* Wed Oct 12 2019 Donovan Baarda <abo@minkirri.apana.org.au>
-- Updated SPEC file for librsync 2.2.0
-* Sat Aug 17 2019 Donovan Baarda <abo@minkirri.apana.org.au>
-- Updated SPEC file for librsync 2.1.0
-* Tue Feb 27 2018 Orsiris de Jong <ozy@netpower>
-- Updated SPEC file for librsync 2.0.2
-- Fixed cmake paths for RHEL 7 64 bits
-- Added automatic source download using wget (for tests)
-- Updated dependencies
