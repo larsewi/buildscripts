@@ -12,7 +12,9 @@ TTD=${BUILD_ROOT}/cfbuild-librsync-devel${PREFIX}
 
 # Build
 
-cmake -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release .
+# Touch this file, or else autoreconf is called for some reason
+touch config.hin
+./configure --prefix=$PREFIX
 
 $MAKE
 

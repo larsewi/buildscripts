@@ -12,15 +12,11 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 
-	cmake -DCMAKE_SYSTEM_NAME=Windows \
-	    -DCMAKE_C_COMPILER=$(DEB_HOST_GNU_TYPE)-gcc \
-	    -DCMAKE_FIND_ROOT_PATH=/usr/$(DEB_HOST_GNU_TYPE) \
-	    -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-	    -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-	    -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-	    -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} -static -0s" \
-	    -DCMAKE_INSTALL_PREFIX=$(PREFIX) \
-	    -DCMAKE_BUILD_TYPE=Release .
+	# Touch this file, or else autoreconf is called for some reason
+	touch config.h.in
+	./configure LDFLAGS="-Wl,-no-undefined" --host=$(DEB_HOST_GNU_TYPE) --prefix=$(PREFIX) \
+	    --enable-shared \
+	    --disable-static
 	make
 
 	touch build-stamp

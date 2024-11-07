@@ -9,7 +9,8 @@ TTD=${BUILD_ROOT}/cfbuild-librsync-devel${PREFIX}
 
 # Build
 
-cmake -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release .
+touch config.hin
+./configure --prefix=$PREFIX
 gmake
 
 # Test
