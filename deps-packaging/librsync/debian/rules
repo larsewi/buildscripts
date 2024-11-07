@@ -12,6 +12,8 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 
+	for i in 00*.patch; do patch -p1 < $$i; done
+
 	./configure --prefix=$(PREFIX)
 	make
 

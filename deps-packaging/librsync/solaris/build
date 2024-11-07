@@ -12,6 +12,11 @@ TTD=${BUILD_ROOT}/cfbuild-librsync-devel${PREFIX}
 
 # Build
 
+for i in 00*.patch
+do
+    $PATCH -p1 < $i
+done
+
 # Touch this file, or else autoreconf is called for some reason
 touch config.hin
 ./configure --prefix=$PREFIX

@@ -17,9 +17,12 @@ AutoReqProv: no
 %prep
 mkdir -p %{_builddir}
 %setup -q -n librsync-%{librsync_version}
+for i in %{_topdir}/SOURCES/00*.patch; do
+    $PATCH -p3 < $i
+done
 
 # Touch this file, or else autoreconf is called for some reason
-touch config.h.in
+touch config.hin
 ./configure --prefix=%{prefix}
 
 %build
