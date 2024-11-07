@@ -31,7 +31,7 @@ sudo apt-get -qy install git autoconf automake m4 make bison flex \
 sudo apt-get -qy install libncurses5 rsync
 # packages needed for building 
 sudo apt-get -qy install bison flex binutils build-essential fakeroot ntp \
- dpkg-dev libpam0g-dev python3 debhelper pkg-config psmisc nfs-common cmake
+ dpkg-dev libpam0g-dev python3 debhelper pkg-config psmisc nfs-common
 
 # remove unwanted packages
 sudo apt-get -qq purge apache* "postgresql*" redis*
