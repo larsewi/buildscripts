@@ -15,7 +15,8 @@ build-stamp:
 	for i in 00*.patch; do patch -p1 < $$i; done
 
 	# Touch this file, or else autoreconf is called for some reason
-	touch config.h.in
+	touch config.hin
+	touch aclocal.m4
 	./configure LDFLAGS="-Wl,-no-undefined" --host=$(DEB_HOST_GNU_TYPE) --prefix=$(PREFIX) \
 	    --enable-shared \
 	    --disable-static

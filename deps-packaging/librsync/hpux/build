@@ -14,6 +14,7 @@ for i in 00*.patch; do
 done
 
 touch config.hin
+touch aclocal.m4
 ./configure --prefix=$PREFIX
 gmake
 

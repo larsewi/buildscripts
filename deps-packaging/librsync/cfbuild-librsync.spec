@@ -23,6 +23,7 @@ done
 
 # Touch this file, or else autoreconf is called for some reason
 touch config.hin
+touch aclocal.m4
 ./configure --prefix=%{prefix}
 
 %build
