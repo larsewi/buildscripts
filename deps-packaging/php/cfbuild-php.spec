@@ -24,6 +24,10 @@ then
   patch -p0 < %{_topdir}/SOURCES/old-gcc-isfinite.patch
 fi
 
+for i in %{_topdir}/SOURCES/00*.patch; do
+    $PATCH -p1 < $i
+done
+
 %if %{?rhel}%{!?rhel:0} == 8
 CFLAGS="-fPIE"
 LDFLAGS="-pie"
