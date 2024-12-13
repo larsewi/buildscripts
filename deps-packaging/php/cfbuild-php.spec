@@ -36,6 +36,10 @@ CFLAGS=""
 LDFLAGS=""
 %endif
 
+# The packaged libtool is too old, let's remove it so that we ensure to
+# use the system installed one
+rm -f libtool
+
 ./configure --prefix=%{prefix}/httpd/php \
   --with-config-file-scan-dir=%{prefix}/httpd/php/lib \
   --with-apxs2=%{prefix}/httpd/bin/apxs \
