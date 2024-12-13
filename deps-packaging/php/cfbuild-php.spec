@@ -45,7 +45,6 @@ LDFLAGS=""
   --with-pdo-pgsql=%{prefix} \
   --with-iconv \
   --with-zlib=%{prefix} \
-  --with-libmbfl=%{prefix} \
   --enable-mbstring \
   --enable-sockets \
   --disable-mbregex \
@@ -69,9 +68,6 @@ LDFLAGS=""
   --without-gettext \
   --without-gmp \
   --without-mhash \
-  --without-imap \
-  --without-imap-ssl \
-  --without-oci8 \
   --without-odbcver \
   --without-adabas \
   --without-sapdb \
@@ -87,27 +83,16 @@ LDFLAGS=""
   --without-pdo-dblib \
   --without-pdo-firebird \
   --without-pdo-mysql \
-  --without-pdo-oci \
-  --without-pdo-oci \
-  --without-pdo-oci \
-  --without-pdo-odbc \
-  --without-pdo-odbc \
   --without-pdo-odbc \
   --without-pdo-sqlite \
   --without-pgsql \
-  --without-pspell \
   --without-libedit \
   --without-readline \
   --without-mm \
   --without-snmp \
   --without-tidy \
-  --without-xmlrpc \
   --without-xsl \
   --without-pear \
-  --without-pear \
-  --without-tsrm-pth \
-  --without-tsrm-st \
-  --without-tsrm-pthreads \
   CPPFLAGS="-I%{prefix}/include" LD_LIBRARY_PATH="%{prefix}/lib" LD_RUN_PATH="%{prefix}/lib" PKG_CONFIG_PATH="%{prefix}/lib/pkgconfig" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
 %build
