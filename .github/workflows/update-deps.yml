@@ -51,7 +51,5 @@ jobs:
             title: Updated dependencies
             body: ${{ steps.commit-message-from-file.outputs.body }}
             reviewers: |
-              olehermanse
               larsewi
-              craigcomstock
             branch: update-dependencies
