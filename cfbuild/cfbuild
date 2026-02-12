@@ -1,0 +1,178 @@
+#!/bin/sh
+# cfbuild — CFEngine build system
+#
+# Single entry point for all build operations.
+# Usage: cfbuild [options] <command> [command-options]
+
+# Resolve our own location (works with symlinks on most platforms)
+CFBUILD_ROOT="$(cd "$(dirname "$0")" && pwd)"
+export CFBUILD_ROOT
+
+# --- Bootstrap: ensure POSIX compliance ---
+. "$CFBUILD_ROOT/lib/bootstrap.sh"
+
+# --- Load core libraries ---
+. "$CFBUILD_ROOT/lib/log.sh"
+. "$CFBUILD_ROOT/lib/error.sh"
+. "$CFBUILD_ROOT/lib/config.sh"
+. "$CFBUILD_ROOT/lib/compat.sh"
+. "$CFBUILD_ROOT/lib/platform.sh"
+. "$CFBUILD_ROOT/lib/retry.sh"
+. "$CFBUILD_ROOT/lib/template.sh"
+. "$CFBUILD_ROOT/lib/pkg.sh"
+
+# --- Usage/version helpers (must be defined before option parsing) ---
+_cfbuild_usage() {
+    cat <<'USAGE'
+cfbuild — CFEngine build system
+
+Usage: cfbuild [options] <command> [command-options]
+
+Options:
+  --project=PROJ    Project to build: community, nova (default: community)
+  --role=ROLE       Role to build: agent, hub (default: agent)
+  --type=TYPE       Build type: debug, release (default: debug)
+  --prefix=PATH     Installation prefix (default: /var/cfengine)
+  --cross=TARGET    Cross-compilation target (e.g., x64-mingw)
+  --no-tests        Skip tests
+  --yes, -y         Skip confirmation prompts
+  --verbose, -v     Verbose output
+  --quiet, -q       Suppress non-error output
+  --help, -h        Show this help
+  --version         Show version
+
+Commands:
+  detect      Print detected platform information
+  deps        Build and install bundled dependencies
+  configure   Run ./configure on CFEngine repositories
+  compile     Build CFEngine (make && make install)
+  package     Create platform-specific packages
+  test        Run tests
+  clean       Remove build artifacts
+  build       Full pipeline (deps → configure → compile → package)
+  container   Run a build command inside a container
+USAGE
+}
+
+_cfbuild_version() {
+    printf 'cfbuild 0.1.0\n'
+}
+
+# --- Defaults ---
+CFBUILD_PROJECT="${CFBUILD_PROJECT:-community}"
+CFBUILD_ROLE="${CFBUILD_ROLE:-agent}"
+CFBUILD_TYPE="${CFBUILD_TYPE:-debug}"
+CFBUILD_PREFIX="${CFBUILD_PREFIX:-/var/cfengine}"
+CFBUILD_VERBOSE="${CFBUILD_VERBOSE:-}"
+CFBUILD_QUIET="${CFBUILD_QUIET:-}"
+CFBUILD_TESTS="${CFBUILD_TESTS:-yes}"
+CFBUILD_CROSS_TARGET="${CFBUILD_CROSS_TARGET:-}"
+CFBUILD_FORCE_DEPS="${CFBUILD_FORCE_DEPS:-no}"
+CFBUILD_YES="${CFBUILD_YES:-no}"
+
+# --- Parse global options ---
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --project=*)
+        CFBUILD_PROJECT="${1#*=}"
+        shift
+        ;;
+    --role=*)
+        CFBUILD_ROLE="${1#*=}"
+        shift
+        ;;
+    --type=*)
+        CFBUILD_TYPE="${1#*=}"
+        shift
+        ;;
+    --prefix=*)
+        CFBUILD_PREFIX="${1#*=}"
+        shift
+        ;;
+    --cross=*)
+        CFBUILD_CROSS_TARGET="${1#*=}"
+        shift
+        ;;
+    --no-tests)
+        CFBUILD_TESTS=no
+        shift
+        ;;
+    --yes | -y)
+        CFBUILD_YES=yes
+        shift
+        ;;
+    --verbose | -v)
+        CFBUILD_VERBOSE=yes
+        shift
+        ;;
+    --quiet | -q)
+        CFBUILD_QUIET=yes
+        shift
+        ;;
+    --help | -h)
+        _cfbuild_usage
+        exit 0
+        ;;
+    --version)
+        _cfbuild_version
+        exit 0
+        ;;
+    --)
+        shift
+        break
+        ;;
+    -*) fatal "Unknown option: $1 (use --help for usage)" ;;
+    *) break ;; # First non-option is the command
+    esac
+done
+
+export CFBUILD_PROJECT CFBUILD_ROLE CFBUILD_TYPE CFBUILD_PREFIX
+export CFBUILD_VERBOSE CFBUILD_QUIET CFBUILD_TESTS CFBUILD_CROSS_TARGET
+export CFBUILD_FORCE_DEPS CFBUILD_YES
+
+# --- Production readiness warning ---
+log_warn "cfbuild is not production ready. Use at your own risk."
+if [ "$CFBUILD_YES" != yes ] && [ "$CFBUILD_IN_CONTAINER" != yes ]; then
+    printf 'Do you wish to continue? [y/N] '
+    read -r _answer
+    case "$_answer" in
+    y | Y | yes | YES) ;;
+    *) exit 0 ;;
+    esac
+fi
+
+# --- Validate global options ---
+case "$CFBUILD_PROJECT" in
+community | nova) ;;
+*) fatal "Invalid project: $CFBUILD_PROJECT (must be 'community' or 'nova')" ;;
+esac
+
+case "$CFBUILD_ROLE" in
+agent | hub) ;;
+*) fatal "Invalid role: $CFBUILD_ROLE (must be 'agent' or 'hub')" ;;
+esac
+
+case "$CFBUILD_TYPE" in
+debug | release) ;;
+*) fatal "Invalid build type: $CFBUILD_TYPE (must be 'debug' or 'release')" ;;
+esac
+
+# --- Detect platform ---
+platform_detect
+
+# --- Resolve basedir (workspace root: parent of buildscripts) ---
+CFBUILD_BASEDIR=$(cd "$CFBUILD_ROOT/../.." && pwd)
+export CFBUILD_BASEDIR
+
+# --- Dispatch command ---
+_cmd="${1:?$(printf 'Usage: cfbuild [options] <command>\nCommands: detect, deps, configure, compile, package, test, clean, build\n')}"
+shift
+
+_cmd_file="$CFBUILD_ROOT/cmd/${_cmd}.sh"
+if [ ! -f "$_cmd_file" ]; then
+    fatal "Unknown command: $_cmd (try: detect, deps, configure, compile, package, test, clean, build, container)"
+fi
+
+# Command file is resolved dynamically from user input.
+# shellcheck disable=SC1090
+. "$_cmd_file"

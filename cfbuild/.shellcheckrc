@@ -1,0 +1,7 @@
+# SC3043: 'local' is undefined in POSIX sh.
+# We target shells that all support 'local' (dash, bash, ash, busybox sh).
+disable=SC3043
+
+# SC2317: Command appears to be unreachable.
+# The "return 0 2>/dev/null || exit 0" source-guard pattern triggers this.
+disable=SC2317
