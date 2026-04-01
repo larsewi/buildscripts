@@ -152,9 +152,25 @@ def pull_image(platform_name):
     return ref
 
 
-def push_image(platform_name, local_tag):
+def image_exists_in_registry(platform_name):
+    """Check if an image tag already exists in the registry."""
+    ref = registry_image_ref(platform_name)
+    result = subprocess.run(
+        ["docker", "manifest", "inspect", ref],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def push_image(platform_name, local_tag, force=False):
     """Tag a local image with the registry reference and push it."""
     ref = registry_image_ref(platform_name)
+
+    if not force and image_exists_in_registry(platform_name):
+        log.error(f"Image {ref} already exists. Bump IMAGE_VERSION or use --force.")
+        sys.exit(1)
+
     log.info(f"Tagging {local_tag} as {ref}...")
     result = subprocess.run(["docker", "tag", local_tag, ref])
     if result.returncode != 0:
@@ -285,6 +301,11 @@ def parse_args():
         help="Build image and push to registry, then exit",
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow overwriting existing images in the registry",
+    )
+    parser.add_argument(
         "--shell",
         action="store_true",
         help="Drop into container shell for debugging",
@@ -347,7 +368,7 @@ def main():
         image_tag = build_image(
             args.platform, platform_config, script_dir, rebuild=True
         )
-        push_image(args.platform, image_tag)
+        push_image(args.platform, image_tag, force=args.force)
         return
 
     # Resolve image: pull from registry, fall back to local build

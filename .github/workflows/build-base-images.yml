@@ -14,6 +14,11 @@ on:
           - ubuntu-24
           - debian-11
           - debian-12
+      force:
+        description: Overwrite existing images in the registry
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-and-push:
@@ -35,4 +40,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
-        run: ./build-in-container.py --platform ${{ matrix.platform }} --push-image
+        run: ./build-in-container.py --platform ${{ matrix.platform }} --push-image ${{ inputs.force && '--force' || '' }}
