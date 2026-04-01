@@ -29,7 +29,7 @@ systemctl restart cfengine3"
   fi
 fi
 
-if command -v systemctl 2>/dev/null && systemctl is-system-running; then
+if use_systemd; then
   # This is important in case any of the units have been replaced by the package
   # and we call them in the postinstall script.
   if ! /bin/systemctl daemon-reload; then
@@ -276,7 +276,8 @@ for i in cf-agent cf-promises cf-key cf-secret cf-execd cf-serverd cf-monitord c
          cf-net cf-check cf-support \
          cfbs;
 do
-  if [ -f $PREFIX/bin/$i -a -d /usr/local/sbin ]; then
+  if [ `os_type` != redhat ] && [ -x $PREFIX/bin/$i ] && [ -d /usr/local/sbin ]; then
+    # These links are handled in .spec file for RedHat
     ln -sf $PREFIX/bin/$i /usr/local/sbin/$i || true
   fi
   if [ -f /usr/share/man/man8/$i.8.gz ]; then
@@ -801,11 +802,16 @@ if [ ! -f $PREFIX/state/pg/data/postgresql.conf ]; then
   else
     pgconfig_type="PostgreSQL default"
   fi
+  cf_console echo "No existing postgresql.conf, initializing Postgres"
   init_postgres_dir "$new_pgconfig_file" "$pgconfig_type"
 fi
 if is_upgrade && [ -d "$BACKUP_DIR/data" ]; then
+  cf_console echo "Upgrade and BACKUP_DIR/data is present, proceeding with full database migration."
   do_migration "$new_pgconfig_file" "$pgconfig_type"
+else
+  cf_console echo "Major version of PostgreSQL did not change so simple migration will occur."
 fi
+
 
 (cd /tmp && su cfpostgres -c "$PREFIX/bin/pg_ctl -w -D $PREFIX/state/pg/data -l /var/log/postgresql.log start")
 
@@ -991,10 +997,7 @@ chmod 0700 -R $PREFIX/httpd/htdocs/ldap/config
 
 # changed permissions and owner of PHP and JS dependencies
 chown root:$MP_APACHE_USER -R $PREFIX/httpd/htdocs/vendor
-chown root:$MP_APACHE_USER -R $PREFIX/httpd/htdocs/public/scripts/node_modules
-
 chmod -R ug=rX,o= $PREFIX/httpd/htdocs/vendor # 440 for files, 550 for dirs
-chmod -R ug=rX,o= $PREFIX/httpd/htdocs/public/scripts/node_modules
 
 ##
 # Start Apache server (and php-fpm if present)
@@ -1035,6 +1038,7 @@ true "Updating MP password"
 true "Done updating password"
 
 su $MP_APACHE_USER -c "$PREFIX/httpd/php/bin/php $PREFIX/httpd/htdocs/public/index.php cli_tasks migrate_ldap_settings https://localhost/ldap"
+su $MP_APACHE_USER -c "$PREFIX/httpd/php/bin/php $PREFIX/httpd/htdocs/public/index.php cli_tasks migrate_cmdb_configs"
 
 # Shut down Apache and Postgres again, because we may need them to start through
 # systemd later.
@@ -1066,7 +1070,7 @@ chmod g+rX "$PREFIX/httpd/php"
 # Register CFEngine initscript, if not yet.
 #
 if ! is_upgrade; then
-  if command -v systemctl 2>/dev/null && systemctl is-system-running; then
+  if use_systemd; then
     # Reload systemd config to pick up newly installed units
     /bin/systemctl daemon-reload > /dev/null 2>&1
     # Enable cfengine3 service (starts all the other services)

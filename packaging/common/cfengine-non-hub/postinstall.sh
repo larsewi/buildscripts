@@ -1,4 +1,4 @@
-if command -v systemctl 2>/dev/null && systemctl is-system-running; then
+if use_systemd; then
   # This is important in case any of the units have been replaced by the package
   # and we call them in the postinstall script.
   if ! /bin/systemctl daemon-reload; then
@@ -47,7 +47,8 @@ fi
 mkdir -p /usr/local/sbin
 for i in cf-agent cf-promises cf-key cf-secret cf-execd cf-serverd cf-monitord cf-runagent cf-net cf-check cf-support;
 do
-  if [ -f $PREFIX/bin/$i ]; then
+  if [ `os_type` != redhat ] && [ -x $PREFIX/bin/$i ]; then
+    # These links are handled in .spec file for RedHat
     ln -sf $PREFIX/bin/$i /usr/local/sbin/$i || true
   fi
 
@@ -68,7 +69,7 @@ case `os_type` in
     #
     # Register CFEngine initscript, if not yet.
     #
-    if command -v systemctl 2>/dev/null && systemctl is-system-running; then
+    if use_systemd; then
       # Reload systemd config to pick up newly installed units
       /bin/systemctl daemon-reload > /dev/null 2>&1
       # Enable cfengine3 service (starts all the other services)

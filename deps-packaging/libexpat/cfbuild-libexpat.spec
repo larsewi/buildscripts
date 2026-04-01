@@ -1,4 +1,4 @@
-%define expat_version 2.7.1
+%define expat_version 2.7.3
 
 Summary: CFEngine Build Automation -- libexpat
 Name: cfbuild-libexpat
@@ -22,8 +22,8 @@ CFLAGS="-fPIC -DPIC" ./configure --prefix=%{prefix} --without-examples --without
 
 %build
 
-make   
- 
+make
+
 %install
 
 rm -rf ${RPM_BUILD_ROOT}
@@ -64,4 +64,3 @@ CFEngine Build Automation -- libexpat -- development files
 %prefix/lib/pkgconfig
 
 %changelog
-

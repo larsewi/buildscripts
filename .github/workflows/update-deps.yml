@@ -20,7 +20,7 @@ jobs:
       pull-requests: write
     strategy:
       matrix:
-        branch: [master, 3.24.x, 3.21.x]
+        branch: [master, 3.27.x, 3.24.x]
     steps:
       - name: Checks-out repository
         uses: actions/checkout@v4
@@ -44,7 +44,8 @@ jobs:
         run: |
           echo "COMMIT_HASH_BEFORE=$(git log -1 --format=%H)">> $GITHUB_ENV
       - name: Run update script
-        run: python3 /tmp/update-deps.py --debug --bump=${{ matrix.branch == 'master' && 'major' || 'minor' }}
+        # we use only master branch for ci build host policy so only check for jdk updates in master
+        run: python3 /tmp/update-deps.py --debug --bump=${{ matrix.branch == 'master' && 'major' || 'minor' }} ${{ matrix.branch == 'master' && '--jdk21' || '' }}
       - name: Save commit hash after
         run: |
           echo "COMMIT_HASH_AFTER=$(git log -1 --format=%H)">> $GITHUB_ENV
@@ -55,9 +56,7 @@ jobs:
           title: "Updated dependencies (${{ matrix.branch }})"
           body: "Automated dependency updates for the ${{ matrix.branch }} branch"
           reviewers: |
-            olehermanse
             larsewi
             craigcomstock
-            aleksandrychev
           branch: update-dependencies-action-${{ matrix.branch }}
           branch-suffix: timestamp

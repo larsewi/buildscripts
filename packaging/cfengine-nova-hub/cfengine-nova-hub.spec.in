@@ -82,10 +82,12 @@ cp -a %{prefix}/* $RPM_BUILD_ROOT%{prefix}
 cp -a %{_basedir}/cfengine/dist/* $RPM_BUILD_ROOT
 
 # ENT-11901
-# For el9+ we started seeing issues from other packages not expecting init scripts
-%if %{?rhel}%{!?rhel:0} >= 9
+# For el8+ we started seeing issues from other packages not expecting init scripts
+# If sysvinit scripts other than cfengine3 are present, such as cf-php-fpm, they will fail with systemctl operations due to not supporting chkconfig.
+%if %{?rhel}%{!?rhel:0} >= 8
 rm -f $RPM_BUILD_ROOT/etc/sysconfig/cfengine3
 rm -f $RPM_BUILD_ROOT/etc/init.d/cfengine3
+rm -f $RPM_BUILD_ROOT/etc/init.d/cf-php-fpm
 rm -f $RPM_BUILD_ROOT/etc/profile.d/cfengine.sh
 %endif
 # Remove useless stuff
@@ -186,6 +188,16 @@ rm -rf $RPM_BUILD_ROOT/tmp/cfbs_root
 # Add cf-enterprise-support to share
 cp %{_basedir}/nova/misc/cf-support-nova-hub.sh $RPM_BUILD_ROOT%prefix/share/
 chmod 755 $RPM_BUILD_ROOT%prefix/share/cf-support-nova-hub.sh
+
+# Create symlinks to /usr/local/sbin and /usr/sbin
+mkdir -p $RPM_BUILD_ROOT/usr/local/sbin
+mkdir -p $RPM_BUILD_ROOT/usr/sbin
+for binary in cf-agent cf-check cf-execd cf-hub cf-key cf-monitord cf-net cf-promises cf-reactor cf-runagent cf-secret cf-serverd cf-support cfbs; do
+  if [ -f $RPM_BUILD_ROOT%{prefix}/bin/$binary ]; then
+    ln -sf %{prefix}/bin/$binary $RPM_BUILD_ROOT/usr/local/sbin/$binary
+    ln -sf %{prefix}/bin/$binary $RPM_BUILD_ROOT/usr/sbin/$binary
+  fi
+done
 %clean
 #rm -rf $RPM_BUILD_ROOT
 
@@ -337,9 +349,11 @@ exit 0
 # Initscript, other configuration
 %defattr(755,root,root,755)
 # ENT-11901
-# For el9+ we started seeing issues from other packages not expecting init scripts
-%if %{?rhel}%{!?rhel:0} < 9
+# For el8+ we started seeing issues from other packages not expecting init scripts
+# ENT-13319 we found that rhel-8 also exhibited this behavior so adjusted el9+ to el8+
+%if %{?rhel}%{!?rhel:0} < 8
 /etc/init.d/cfengine3
+/etc/init.d/cf-php-fpm
 /etc/profile.d/cfengine.sh
 %attr(644,root,root) /etc/sysconfig/cfengine3
 %endif
@@ -355,6 +369,43 @@ exit 0
 /usr/lib/systemd/system/cf-monitord.service
 /usr/lib/systemd/system/cf-postgres.service
 /usr/lib/systemd/system/cf-serverd.service
+
+# Symlinks to /usr/local/sbin (backward compatibility)
+%defattr(755,root,root,755)
+/usr/local/sbin/cf-agent
+/usr/local/sbin/cf-check
+/usr/local/sbin/cf-execd
+/usr/local/sbin/cf-hub
+/usr/local/sbin/cf-key
+/usr/local/sbin/cf-monitord
+/usr/local/sbin/cf-net
+/usr/local/sbin/cf-promises
+/usr/local/sbin/cf-reactor
+/usr/local/sbin/cf-runagent
+/usr/local/sbin/cf-secret
+/usr/local/sbin/cf-serverd
+/usr/local/sbin/cf-support
+%if %{?rhel}%{!?rhel:0} >= 7
+/usr/local/sbin/cfbs
+%endif
+
+# Symlinks to /usr/sbin (included in secure_path)
+/usr/sbin/cf-agent
+/usr/sbin/cf-check
+/usr/sbin/cf-execd
+/usr/sbin/cf-hub
+/usr/sbin/cf-key
+/usr/sbin/cf-monitord
+/usr/sbin/cf-net
+/usr/sbin/cf-promises
+/usr/sbin/cf-reactor
+/usr/sbin/cf-runagent
+/usr/sbin/cf-secret
+/usr/sbin/cf-serverd
+/usr/sbin/cf-support
+%if %{?rhel}%{!?rhel:0} >= 7
+/usr/sbin/cfbs
+%endif
 
 %if %{?rhel}%{!?rhel:0} > 7
 # SELinux policy
@@ -381,11 +432,14 @@ exit 0
 
 # ENT-2708, ENT-2846
 %defattr(600,root,root,700)
-%prefix/share/GUI/application/config/*.php
-%prefix/share/GUI/phpcfenginenova/*.sql
-%prefix/share/GUI/phpcfenginenova/migrations
-%prefix/share/GUI/phpcfenginenova/migrations/*.sql
 %prefix/share/db/*.sql
+
+# No-one should need access to anything under share/GUI
+%defattr(400,root,root,400)
+# We can change these configuration files as part of masterfiles policy so need to mark as configs
+%config(noreplace) %prefix/share/GUI/application/config/config.php
+%config(noreplace) %prefix/share/GUI/api/modules/inventory/config/config.php
+%prefix/share/GUI
 
 # Base policy
 %defattr(644,root,root,755)

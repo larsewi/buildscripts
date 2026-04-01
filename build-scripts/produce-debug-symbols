@@ -1,131 +1,158 @@
 #!/bin/sh
+#
+# Extracts debug symbols from CFEngine binaries and libraries, creating a
+# self-extracting installer package. This script:
+# - Extracts debug symbols from executables and libraries using objcopy
+# - Strips debug information from the original binaries
+# - Creates compressed .debug files
+# - Generates a self-extracting .bsx package for distribution
+#
+# > What is the purpose of this?
+# You can strip debugging info from production binaries to make them smaller,
+# while keeping the debug info file available for troubleshooting
 
-. `dirname "$0"`/functions
+. "$(dirname "$0")"/functions
 . detect-environment
 . compile-options
 
-if [ $BUILD_TYPE != "RELEASE" ];
-then
-    echo "Debug symbols not requested";
-    exit 0;
+# Only produce debug symbols for RELEASE builds
+if [ "$BUILD_TYPE" != "RELEASE" ]; then
+    log_debug "Debug symbols not requested"
+    exit 0
 else
-    echo "Producing debug symbols"
+    log_debug "Producing debug symbols"
 fi
 
+# Locate binaries and libraries to extract debug symbols from
 EXECUTABLES_DIR="$BASEDIR/cfengine/dist$PREFIX/bin"
-EXECUTABLES_LIST=`ls $EXECUTABLES_DIR/cf-*`
+EXECUTABLES_LIST=$(ls "$EXECUTABLES_DIR"/cf-*)
 LIBRARIES_DIR="$BASEDIR/cfengine/dist$PREFIX/lib"
-LIBRARIES_LIST=`ls $LIBRARIES_DIR/*.so*`
+LIBRARIES_LIST=$(ls "$LIBRARIES_DIR"/*.so*)
+
+# Configure output directories and naming
 DEBUG_SUFFIX=debug
 PAYLOAD_DIR=payload
 EXECUTABLES_PAYLOAD_DIR=$PAYLOAD_DIR/exe
 LIBRARIES_PAYLOAD_DIR=$PAYLOAD_DIR/lib
 
 # Print build information
-echo "EXECUTABLES_DIR  = $EXECUTABLES_DIR"
-echo "EXECUTABLES_LIST = $EXECUTABLES_LIST"
-echo "LIBRARIES_DIR    = $LIBRARIES_DIR"
-echo "LIBRARIES_LIST   = $LIBRARIES_LIST"
-echo "DEBUG_SUFFIX     = $DEBUG_SUFFIX"
-echo "PAYLOAD_DIR      = $PAYLOAD_DIR"
+log_debug "EXECUTABLES_DIR  = $EXECUTABLES_DIR"
+log_debug "EXECUTABLES_LIST = $EXECUTABLES_LIST"
+log_debug "LIBRARIES_DIR    = $LIBRARIES_DIR"
+log_debug "LIBRARIES_LIST   = $LIBRARIES_LIST"
+log_debug "DEBUG_SUFFIX     = $DEBUG_SUFFIX"
+log_debug "PAYLOAD_DIR      = $PAYLOAD_DIR"
 
-# Make a temporary folder to store the debug symbols once they are produced
+# Create temporary directories to store the extracted debug symbols
 mkdir $PAYLOAD_DIR
 mkdir $EXECUTABLES_PAYLOAD_DIR
 mkdir $LIBRARIES_PAYLOAD_DIR
 
-# We put the debug symbols on the same folder as the executables.
-# This way debugging gets a little bit simpler.
+# Process executables: extract debug symbols, strip binaries, and add debug links
+# Debug symbols will be installed in the same directory as executables for easier debugging
+for i in $EXECUTABLES_LIST; do
+    log_debug "Taking debug symbols from: $i and putting it into: $i.$DEBUG_SUFFIX"
+    # Extract debug information into a separate file
+    objcopy --only-keep-debug "$i" "$i.$DEBUG_SUFFIX"
+    # Remove debug symbols from the binary to reduce size
+    strip --strip-debug --strip-unneeded "$i"
+    # Add a reference in the binary to the debug file
+    objcopy --add-gnu-debuglink="$i.$DEBUG_SUFFIX" "$i"
+    # Make debug file non-executable
+    chmod -x "$i.$DEBUG_SUFFIX"
+    # Compress and move to payload directory
+    gzip "$i.$DEBUG_SUFFIX"
+    mv "$i.$DEBUG_SUFFIX.gz" $EXECUTABLES_PAYLOAD_DIR
+done
 
-for i in $EXECUTABLES_LIST;
-do
-    echo "Taking debug symbols from: $i and putting it into: $i.$DEBUG_SUFFIX"
+# Process libraries: same procedure as executables
+# Debug symbols will be installed in the same directory as libraries
+for i in $LIBRARIES_LIST; do
+    log_debug "Taking debug symbols from: $i and putting it into: $i.$DEBUG_SUFFIX"
     objcopy --only-keep-debug "$i" "$i.$DEBUG_SUFFIX"
     strip --strip-debug --strip-unneeded "$i"
     objcopy --add-gnu-debuglink="$i.$DEBUG_SUFFIX" "$i"
     chmod -x "$i.$DEBUG_SUFFIX"
     gzip "$i.$DEBUG_SUFFIX"
-    mv "$i.$DEBUG_SUFFIX.gz" $EXECUTABLES_PAYLOAD_DIR
+    mv "$i.$DEBUG_SUFFIX.gz" $LIBRARIES_PAYLOAD_DIR
 done
 
-# We put the debug symbols for libraries on the same folder as the libraries.
-
-for i in $LIBRARIES_LIST;
-do
-	echo "Taking debug symbols from: $i and putting it into: $i.$DEBUG_SUFFIX"
-    objcopy --only-keep-debug "$i" "$i.$DEBUG_SUFFIX"
-	strip --strip-debug --strip-unneeded "$i"
-	objcopy --add-gnu-debuglink="$i.$DEBUG_SUFFIX" "$i"
-	chmod -x "$i.$DEBUG_SUFFIX"
-	gzip "$i.$DEBUG_SUFFIX"
-	mv "$i.$DEBUG_SUFFIX.gz" $LIBRARIES_PAYLOAD_DIR
+# Generate installation script that will be embedded in the self-extracting package
+# This script decompresses and installs the debug symbol files
+log_debug "Writing the installation script"
+cat <<EOF >>$PAYLOAD_DIR/install-ds.sh
+#!/bin/sh
+# Install debug symbols for executables
+for i in \`ls exe/*.gz\`; do
+  gunzip \$i
 done
+mv exe/*.$DEBUG_SUFFIX $PREFIX/bin
+# Install debug symbols for libraries
+for i in \`ls lib/*.gz\`; do
+  gunzip \$i
+done
+mv lib/*.$DEBUG_SUFFIX $PREFIX/lib
+exit 0
+EOF
 
-# Write the installation script
-echo "Writing the installation script"
-echo "#!/bin/sh" > $PAYLOAD_DIR/install-ds.sh
-echo "# Install debug symbols for executables"
-echo "for i in \`ls exe/*.gz\`; do" >> $PAYLOAD_DIR/install-ds.sh
-echo "  gunzip \$i" >> $PAYLOAD_DIR/install-ds.sh
-echo "done" >> $PAYLOAD_DIR/install-ds.sh
-echo "mv exe/*.$DEBUG_SUFFIX $PREFIX/bin" >> $PAYLOAD_DIR/install-ds.sh
-echo "# Install debug symbols for libraries"
-echo "for i in \`ls lib/*.gz\`; do" >> $PAYLOAD_DIR/install-ds.sh
-echo "  gunzip \$i" >> $PAYLOAD_DIR/install-ds.sh
-echo "done" >> $PAYLOAD_DIR/install-ds.sh
-echo "mv lib/*.$DEBUG_SUFFIX $PREFIX/lib" >> $PAYLOAD_DIR/install-ds.sh
-echo "exit 0" >> $PAYLOAD_DIR/install-ds.sh
-
-# Write the decompression script
-echo "Writing the decompression script"
-echo "#!/bin/sh" > decompress-ds.sh
-echo "echo \"Installing debug symbols\"" >> decompress-ds.sh
-echo "TMPDIR=\`mktemp -d /tmp/ds.XXXXXX\`; export TMPDIR"  >> decompress-ds.sh
-echo "ARCHIVE=\`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' \$0\`"  >> decompress-ds.sh
-echo "tail -n+\$ARCHIVE \$0 | tar xzv -C \$TMPDIR"  >> decompress-ds.sh
-echo "echo \"Installer ready - starting installation\""
-echo "CDIR=\`pwd\`"  >> decompress-ds.sh
-echo "cd \$TMPDIR/$PAYLOAD_DIR"  >> decompress-ds.sh
-echo "chmod 755 install-ds.sh" >> decompress-ds.sh
-echo "chmod 755 uninstall-ds.sh" >> decompress-ds.sh
-echo "./install-ds.sh"  >> decompress-ds.sh
-echo "cd \$CDIR"  >> decompress-ds.sh
+# Generate the self-extracting wrapper script
+# This creates a .bsx file that contains both a shell script and a tar archive
+# When executed, it extracts itself to a temp directory and runs the installer
+log_debug "Writing the decompression script"
+cat <<EOF >>decompress-ds.sh
+#!/bin/sh
+echo "Installing debug symbols"
+TMPDIR=\`mktemp -d /tmp/ds.XXXXXX\`; export TMPDIR
+ARCHIVE=\`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' \$0\`
+tail -n+\$ARCHIVE \$0 | tar xzv -C \$TMPDIR
+echo "Installer ready - starting installation"
+CDIR=\`pwd\`
+cd \$TMPDIR/$PAYLOAD_DIR
+chmod 755 install-ds.sh
+chmod 755 uninstall-ds.sh
+./install-ds.sh
+cd \$CDIR
 #echo "rm -rf \$TMPDIR"  >> decompress-ds.sh
-echo "exit 0"  >> decompress-ds.sh
-echo "__ARCHIVE_BELOW__" >> decompress-ds.sh
+exit 0
+__ARCHIVE_BELOW__
+EOF
 
-# Write the uninstall script
-echo "Writing the uninstall script"
-echo "#!/bin/sh" > $PAYLOAD_DIR/uninstall-ds.sh
-echo "echo \"Uninstalling debug symbols\"" >> $PAYLOAD_DIR/uninstall-ds.sh
-echo "rm -f \"$PREFIX\"/bin/*.\$DEBUG_SUFFIX" >> $PAYLOAD_DIR/uninstall-ds.sh
-echo "rm -f \"$PREFIX\"/lib/*.\$DEBUG_SUFFIX" >> $PAYLOAD_DIR/uninstall-ds.sh
-echo "echo \"Done\"" >> $PAYLOAD_DIR/uninstall-ds.sh
+# Generate uninstallation script for removing debug symbols
+log_debug "Writing the uninstall script"
+cat <<EOF >>$PAYLOAD_DIR/uninstall-ds.sh
+#!/bin/sh
+echo "Uninstalling debug symbols"
+rm -f "$PREFIX"/bin/*.\$DEBUG_SUFFIX
+rm -f "$PREFIX"/lib/*.\$DEBUG_SUFFIX
+echo "Done"
+EOF
 
-# Now create the self extracting script
-echo "Creating the self extracting script"
+# Create the self-extracting package by combining the wrapper script and payload
+# The resulting .bsx file is a shell script with an embedded tar.gz archive
+log_debug "Creating the self extracting script"
 tar cf payload.tar $PAYLOAD_DIR
 if [ -e "payload.tar" ]; then
     gzip payload.tar
     if [ -e "payload.tar.gz" ]; then
-        cat decompress-ds.sh payload.tar.gz > cfengine-ds-$OS-$OS_VERSION-$ARCH.bsx
+        # Concatenate the shell script and the compressed archive
+        cat decompress-ds.sh payload.tar.gz >cfengine-ds-"$OS"-"$OS_VERSION"-"$ARCH".bsx
     else
-        echo "File not found"
+        log_error "File not found"
         exit 1
     fi
-    echo "cfengine-ds-$OS-$OS_VERSION-$ARCH.bsx created"
+    log_debug "cfengine-ds-$OS-$OS_VERSION-$ARCH.bsx created"
 fi
-# Put the script in a sensible place
-mkdir -p output/debug_symbols
-mv *.bsx output/debug_symbols
 
-# Clean up after ourserlves
+# Move the package to the output directory
+mkdir -p output/debug_symbols
+mv -- *.bsx output/debug_symbols
+
+# Clean up temporary files and directories
 rm -f decompress-ds.sh
 rm -f install-ds.sh
 rm -f uninstall-ds.sh
 rm -rf $PAYLOAD_DIR
 
-echo "Debug symbols produced."
+log_debug "Debug symbols produced."
 
 exit 0
-

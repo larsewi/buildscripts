@@ -38,4 +38,3 @@ rm -rf ${LXD}/share
 
 mkdir -p ${LX}/lib
 mv ${LXD}/lib/*.so* ${LX}/lib
-

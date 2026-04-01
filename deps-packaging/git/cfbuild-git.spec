@@ -1,4 +1,4 @@
-%define git_version 2.50.0
+%define git_version 2.52.0
 
 Summary: CFEngine Build Automation -- git
 Name: cfbuild-git
@@ -24,7 +24,7 @@ mkdir -p %{_builddir}
 
 case "$OS" in
     rhel|centos)
-        if [ $(echo $OS_VERSION | cut -d. -f1) = 7 ]
+        if [ "$OS_VERSION_MAJOR" = "7" ]
         then
             # Fixes the following compilation error on rhel 7:
             # 15:05:28 compat/posix.h:159:24: fatal error: sys/random.h: No such file or directory
@@ -35,6 +35,9 @@ case "$OS" in
         fi
         ;;
 esac
+
+# On RHEL the macro PATH_MAX is in linux/limits.h, not limits.h
+patch -p1 < %{_topdir}/SOURCES/fixed-undeclared-identifier-PATH_MAX.patch
 
 make CURL_LDFLAGS="-lcurl"
 

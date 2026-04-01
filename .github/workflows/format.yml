@@ -1,0 +1,43 @@
+name: Check formatting on sources
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch: # Enables manual trigger
+
+jobs:
+  format-shell-scripts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: "master"
+      - name: Install dependencies
+        run: sudo apt install shfmt
+      - name: Configure git user
+        run: |
+          git config user.name 'GitHub'
+          git config user.email '<noreply@github.com>'
+      - name: Save commit hash before
+        run: echo "COMMIT_HASH_BEFORE=$(git log -1 --format=%H)">> $GITHUB_ENV
+      - name: Format shell scripts
+        run: make format
+      - name: Save commit hash after
+        run: echo "COMMIT_HASH_AFTER=$(git log -1 --format=%H)">> $GITHUB_ENV
+      - name: Create Pull Request
+        if: env.COMMIT_HASH_BEFORE != env.COMMIT_HASH_AFTER
+        uses: cfengine/create-pull-request@v6
+        with:
+          title: Reformatted shell scripts
+          body: Reformatted shell scripts using `shfmt --write --indent 4 <FILENAME>`.
+          reviewers: |
+            larsewi
+            craigcomstock
+          branch: formatting-action
+          branch-suffix: timestamp

@@ -1,15 +1,19 @@
 #!/bin/sh
 
-. `dirname "$0"`/functions
+. "$(dirname "$0")"/functions
 . version
 
-set -x
+log_debug "Fetching test results from build machine..."
 
 BUILDMACHINE="$1"
 
-mkdir -p $BASEDIR/../../../output/${SCHEDULER}/${BUILD_NUMBER}
-rsync -avr --delete "$BUILDMACHINE:build/output/*" \
-      $BASEDIR/../../../output/${SCHEDULER}/${BUILD_NUMBER} \
-      >/tmp/rsync.log
+# Make sure destination directory exits
+mkdir -p "$BASEDIR"/output/"${SCHEDULER}"/"${BUILD_NUMBER}"
 
+# Copy files from test machine to this machine
+rsync -avr --delete "$BUILDMACHINE:build/output/*" \
+    "$BASEDIR"/output/"${SCHEDULER}"/"${BUILD_NUMBER}" \
+    >/tmp/rsync.log
+
+# Remove results from test machine
 ssh "$BUILDMACHINE" "rm -rf build/output"

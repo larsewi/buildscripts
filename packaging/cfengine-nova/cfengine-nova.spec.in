@@ -23,8 +23,8 @@ Recommends: gzip
 Requires: selinux-policy >= @@SELINUX_POLICY_VERSION@@
 %endif
 
-# we don't bundle OpenSSL on RHEL 8 (and newer in the future)
-%if %{?rhel}%{!?rhel:0} == 8
+# We don't bundle OpenSSL on RHEL >= 8 and SuSE >= 15
+%if 0%{?SYSTEM_SSL}
 Requires: libssl.so.1.1()(64bit) libssl.so.1.1(OPENSSL_1_1_0)(64bit) libssl.so.1.1(OPENSSL_1_1_1)(64bit)
 Requires: libcrypto.so.1.1()(64bit) libcrypto.so.1.1(OPENSSL_1_1_0)(64bit)
 %endif
@@ -57,6 +57,9 @@ mkdir -p $RPM_BUILD_ROOT%{prefix}
 cp -a %{prefix}/* $RPM_BUILD_ROOT%{prefix}
 cp -a %{_basedir}/cfengine/dist/* $RPM_BUILD_ROOT
 
+# for cfengine-nova (client) we never want cf-php-fpm service, that is only for cfengine-nova-hub
+rm -f $RPM_BUILD_ROOT/etc/init.d/cf-php-fpm
+
 # ENT-11901
 # For el9+ and suse-15+ we started seeing issues from other packages not expecting init scripts
 %if %{?rhel}%{!?rhel:0} >= 9 || %{?suse_version}%{!?suse_version:0} >= 1500
@@ -84,6 +87,14 @@ rm -rf $RPM_BUILD_ROOT/usr/lib/systemd/system/cf-php-fpm.service
 rm -rf $RPM_BUILD_ROOT/usr/lib/systemd/system/cf-hub.service
 rm -rf $RPM_BUILD_ROOT/usr/lib/systemd/system/cf-reactor.service
 rm -rf $RPM_BUILD_ROOT/usr/lib/systemd/system/cf-postgres.service
+
+# Create symlinks to /usr/local/sbin and /usr/sbin
+mkdir -p $RPM_BUILD_ROOT/usr/local/sbin
+mkdir -p $RPM_BUILD_ROOT/usr/sbin
+for binary in cf-agent cf-check cf-execd cf-key cf-monitord cf-net cf-promises cf-runagent cf-secret cf-serverd cf-support; do
+  ln -sf %{prefix}/bin/$binary $RPM_BUILD_ROOT/usr/local/sbin/$binary
+  ln -sf %{prefix}/bin/$binary $RPM_BUILD_ROOT/usr/sbin/$binary
+done
 
 
 %clean
@@ -179,6 +190,33 @@ exit 0
 /usr/lib/systemd/system/cf-execd.service
 /usr/lib/systemd/system/cf-monitord.service
 /usr/lib/systemd/system/cf-serverd.service
+
+# Symlinks to /usr/local/sbin (backward compatibility)
+%defattr(755,root,root,755)
+/usr/local/sbin/cf-agent
+/usr/local/sbin/cf-check
+/usr/local/sbin/cf-execd
+/usr/local/sbin/cf-key
+/usr/local/sbin/cf-monitord
+/usr/local/sbin/cf-net
+/usr/local/sbin/cf-promises
+/usr/local/sbin/cf-runagent
+/usr/local/sbin/cf-secret
+/usr/local/sbin/cf-serverd
+/usr/local/sbin/cf-support
+
+# Symlinks to /usr/sbin (included in secure_path)
+/usr/sbin/cf-agent
+/usr/sbin/cf-check
+/usr/sbin/cf-execd
+/usr/sbin/cf-key
+/usr/sbin/cf-monitord
+/usr/sbin/cf-net
+/usr/sbin/cf-promises
+/usr/sbin/cf-runagent
+/usr/sbin/cf-secret
+/usr/sbin/cf-serverd
+/usr/sbin/cf-support
 
 # Documentation
 %defattr(644,root,root,755)
