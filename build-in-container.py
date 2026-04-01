@@ -14,7 +14,7 @@ from pathlib import Path
 
 log = logging.getLogger("build-in-container")
 
-IMAGE_REGISTRY = "ghcr.io/cfengine"
+IMAGE_REGISTRY = "ghcr.io/larsewi"
 IMAGE_VERSION = "1"
 
 PLATFORMS = {
