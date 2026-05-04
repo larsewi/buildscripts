@@ -9,15 +9,15 @@ install_jdk() {
   baseurl=https://download.oracle.com/java/21/archive/
   major_version=21
   baseurl="https://download.oracle.com/java/${major_version}/archive/"
-  version=21.0.9
+  version=21.0.11
   if uname -m | grep aarch64; then
     tarball=jdk-${version}_linux-aarch64_bin.tar.gz
     # checksum from https://download.oracle.com/java/${major_version}/archive/jdk-${version}_linux-aarch64_bin.tar.gz.sha256
-    sha=6e0eef0f229e121dd432358b60e2755bc0916b207bcef014839c78cf9e4367ac
+    sha=2ebe89cad767abba83fb0b8cedd2d2d9bcbf947315fde78f7263a57a24f43b96
   else
     tarball=jdk-${version}_linux-x64_bin.tar.gz
     # checksum from https://download.oracle.com/java/${major_version}/latest/jdk-${version}_linux-x64_bin.tar.gz.sha256
-    sha=0854421306468559813f1e5068e036213f9710e1e239d823c0d63552a1259e25
+    sha=e1c25a83f9e2e374c93e0c29cc3d98a947621ae0fefa4a8d932951eb160c47c3
   fi
   wget --quiet "$baseurl$tarball"
   echo "$sha  $tarball" | sha256sum --check -
